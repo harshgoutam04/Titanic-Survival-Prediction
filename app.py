@@ -1,49 +1,61 @@
 import streamlit as st
 import pandas as pd
-import pickle 
-
-st.title("Titanic Survival Prediction")
-pclass = st.slider('ENTER THE PASSENGER CLASSFOR USER', 1, 3)
-sex = st.selectbox('SELECT THE GENDER OF THE PASSENGER', ['male', 'female'])
-sibsp = st.slider('ENTER THE NUMBER OF SIBLINGS/SPOUSES OF THE PASSENGER', 0, 8)
-parch = st.slider('ENTER THE NUMBER OF PARENTS/CHILDREN OF THE PASSENGER', 0, 6)
-fare = st.slider('ENTER THE FARE OF THE PASSENGER', 0, 100)
-embarked = st.selectbox('SELECT THE EMBARKED LOCATION OF THE PASSENGER', ['Cherbourg', 'Queenstown', 'Southampton'])
-
-data=pd.DataFrame({'Pclass': pclass,'Sex': sex,'SibSp': sibsp,'Parch': parch,'Fare': fare,'Embarked': embarked }, index=[0])
-
-import tensorflow as tf
+import pickle
 from keras.models import load_model
 
-tf.keras.utils.disable_interactive_logging()
+st.title("Titanic Survival Prediction")
 
-model = load_model('model.h5', compile=False)
+pclass = st.slider('Passenger Class', 1, 3)
+sex = st.selectbox('Gender', ['male', 'female'])
+sibsp = st.slider('Siblings/Spouses', 0, 8)
+parch = st.slider('Parents/Children', 0, 6)
+fare = st.slider('Fare', 0, 100)
+embarked = st.selectbox('Embarked', ['Cherbourg', 'Queenstown', 'Southampton'])
+
+data = pd.DataFrame({
+    'Pclass': [pclass],
+    'Sex': [sex],
+    'SibSp': [sibsp],
+    'Parch': [parch],
+    'Fare': [fare],
+    'Embarked': [embarked]
+})
+
+@st.cache_resource
+def load_my_model():
+    return load_model('model_clean.h5', compile=False)
+
+model = load_my_model()
 
 with open('label_encoder.pkl', 'rb') as file:
-    label=pickle.load(file)
+    label = pickle.load(file)
 
 with open('onehot_encoder.pkl', 'rb') as file:
-    onehot=pickle.load(file)
+    onehot = pickle.load(file)
 
 with open('scaler.pkl', 'rb') as file:
-    scaler=pickle.load(file)
+    scaler = pickle.load(file)
 
-data['Sex']=label.transform(data['Sex'])
-embarked=onehot.transform(data[['Embarked']])
-embarked=pd.DataFrame(embarked, columns=onehot.get_feature_names_out())
-data=pd.concat([data, embarked], axis=1).drop('Embarked', axis=1)
+data['Sex'] = label.transform(data['Sex'])
 
-data[['Pclass','SibSp','Parch','Fare']]=scaler.transform(data[['Pclass','SibSp','Parch','Fare']])
+embarked_encoded = onehot.transform(data[['Embarked']])
+embarked_df = pd.DataFrame(embarked_encoded, columns=onehot.get_feature_names_out())
 
-y=model.predict(data)
-y=y[0][0]
+data = pd.concat([data, embarked_df], axis=1).drop('Embarked', axis=1)
 
-def chance(y):
-    if y>=0.5:
-        return "The passenger is likely to survive"
+data[['Pclass','SibSp','Parch','Fare']] = scaler.transform(data[['Pclass','SibSp','Parch','Fare']])
+
+data = data.reindex(columns=[
+    'Pclass','Sex','SibSp','Parch','Fare',
+    'Embarked_Cherbourg','Embarked_Queenstown','Embarked_Southampton'
+])
+
+if st.button('Predict Survival'):
+    y = model.predict(data)[0][0]
+
+    st.write('Probability:', y)
+
+    if y >= 0.5:
+        st.success("Likely to survive")
     else:
-        return "The passenger is likely to not survive"
-    
-if st.button('PREDICT SURVIVAL CHANCE'):
-    st.write('Probability of Survival',y)
-    st.write(chance(y))
+        st.error("Not likely to survive")
