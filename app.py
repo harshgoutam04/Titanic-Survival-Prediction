@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from tensorflow.keras.models import load_model
 import pickle 
 
 st.title("Titanic Survival Prediction")
@@ -13,7 +12,12 @@ embarked = st.selectbox('SELECT THE EMBARKED LOCATION OF THE PASSENGER', ['Cherb
 
 data=pd.DataFrame({'Pclass': pclass,'Sex': sex,'SibSp': sibsp,'Parch': parch,'Fare': fare,'Embarked': embarked }, index=[0])
 
-model=load_model('model.h5', compile=False)
+import tensorflow as tf
+from keras.models import load_model
+
+tf.keras.utils.disable_interactive_logging()
+
+model = load_model('model.h5', compile=False)
 
 with open('label_encoder.pkl', 'rb') as file:
     label=pickle.load(file)
